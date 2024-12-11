@@ -1,50 +1,48 @@
 import pandas as pd
+import random as rnd
+
+class Menu:
+    def __init__(self, menu: pd.DataFrame):
+        self.menu = menu
+        self.generate_nutrient_table()
+
+    def __repr__(self):
+        nutrient_table = (
+            f"Tabela Nutricional:\n"
+            f"---------------------------\n"
+            f"Energia: {self.energy} kcal\n"
+            f"Carboidratos: {self.nutrient_table['carb']} g\n"
+            f"Proteinas: {self.nutrient_table['protein']} g\n"
+            f"Lipidios: {self.nutrient_table['fat']} g\n"
+            f"Fibras: {self.nutrient_table['fiber']} g\n"
+            f"Vitamina C: {self.nutrient_table['vitC']} g\n"
+            f"Vitamina D: {self.nutrient_table['vitD']} g\n"
+            f"Vitamina E: {self.nutrient_table['vitE']} g\n\n"
+            f"Alimentos:\n"
+            f"---------------------------\n"
+        )
+        foods = ''
+        for index, _ in enumerate(self.menu.iterrows()):
+                foods += f'Alimento {index + 1}: {self.menu.iloc[index]["nome_pt_br"]} | {self.menu.iloc[index]["nm_grupo_br"]}\n'
+        return nutrient_table + foods
+    
+    def generate_nutrient_table(self):
+        menu = self.menu
+        self.energy = menu['energia2_media'].sum()
+        self.nutrient_table = {
+            'carb': menu['carboidrato_disponivel_media'].sum(),
+            'protein': menu['proteina_media'].sum(),
+            'fat': menu['lipidios_media'].sum(),
+            'fiber': menu['fibra_alimentar_media'].sum(),
+            'vitC': menu['vitamina_C_media'].sum(),
+            'vitD': menu['vitamina_D_media'].sum(),
+            'vitE': menu['vitamina_E_media'].sum()
+        }
 
 class CBR():
-    class _Menu():
-        def __init__(self, menu: pd.DataFrame):
-            energy, carb, protein, fat, fiber, vitC, vitD, vitE = 0, 0, 0, 0, 0, 0, 0, 0
-            for _, value in menu.iterrows():
-                energy += value['energia2_media']
-                carb += value['carboidrato_disponivel_media']
-                protein += value['proteina_media']
-                fat += value['lipidios_media']
-                fiber += value['fibra_alimentar_media']
-                vitC += value['vitamina_C_media']
-                vitD += value['vitamina_D_media']
-                vitE += value['vitamina_E_media']
-
-            self.menu = menu
-            self.energy = energy
-            self.nutrient_table = {'carb': carb, 'protein': protein, 'fat': fat, 'fiber': fiber, 'vitC': vitC, 'vitD': vitD, 'vitE': vitE}
-
-        def __repr__(self):
-            nutrient_table = f'''
-Tabela Nutricional:\n---------------------------
-Energia: {self.energy} kcal
-Carboidratos: {self.nutrient_table['carb']} g
-Proteinas: {self.nutrient_table['protein']} g
-Lipidios: {self.nutrient_table['fat']} g
-Fibras: {self.nutrient_table['fiber']} g
-Vitamina C: {self.nutrient_table['vitC']} g
-Vitamina D: {self.nutrient_table['vitD']} g
-Vitamina E: {self.nutrient_table['vitE']} g\n
-Alimentos:\n---------------------------
-'''
-            foods = ''
-            index = 0
-            for _, value in self.menu.iterrows():
-                if index < 5:
-                    foods += f'Alimento {index + 1}: {self.menu.iloc[index]["nome_pt_br"]}\n'
-                else:
-                    foods += f'Alimento Adicionado {index + 1}: {self.menu.iloc[index]["nome_pt_br"]}\n'
-                index += 1
-            return nutrient_table + foods
-
     def __init__(self):
         self.foods = self._load_data()
         self.case_library = [self._generate_case(self.foods) for _ in range(10)]
-        print(self.case_library[0])
 
     def _load_data(self):
         foods = pd.read_excel('alimentos.xlsx')
@@ -59,15 +57,57 @@ Alimentos:\n---------------------------
         return foods
 
     def _generate_case(self, foods: pd.DataFrame):
-        protein = foods[foods["nm_grupo_br"].isin(['Carnes e derivados', 'Pescados e frutos do mar', 'Ovos e derivados'])].sample(1)
-        vegetables = foods[foods["nm_grupo_br"].isin(['Vegetais e derivados', 'Leguminosas e derivados'])].sample(2)
-        carb  = foods[foods["nm_grupo_br"].isin(['Cereais e derivados'])].sample(1)
+        protein = foods[foods["nm_grupo_br"].isin(['Carnes e derivados', 'Pescados e frutos do mar', 'Ovos e derivados'])].sample(rnd.randint(2, 3))
+        vegetables = foods[foods["nm_grupo_br"].isin(['Vegetais e derivados', 'Leguminosas e derivados'])].sample(rnd.randint(2, 4))
+        carb  = foods[foods["nm_grupo_br"].isin(['Cereais e derivados'])].sample(rnd.randint(2, 4))
         drink = foods[foods["nm_grupo_br"] == 'Bebidas '].sample(1)
 
         menu = pd.concat([protein, vegetables, carb, drink])
         
-        return self._Menu(menu)
+        return Menu(menu)
          
+    def retrieve(self, energy, threshold):
+        filtered_menus = [m for m in self.case_library if energy - threshold <= m.energy <= energy + threshold]
+
+        if len(filtered_menus) == 0:
+            return None
+        menu = sorted(filtered_menus, key=lambda m: abs(m.energy - energy))[0]
+
+        if menu:
+            print(f'MENU ORIGINAL\n{menu}')
+            menu = Menu(menu.menu)
+            return self.reuse(menu, energy, threshold)
+        else:
+            return None
+    
+    def reuse(self, menu: Menu, energy, threshold):
+        to_change = menu.menu.sample(1).iloc[0]
+        to_change_group = to_change['grupo_id']
+
+        new_food = self.foods[(self.foods['grupo_id'] == to_change_group) & (~self.foods['cod_alimento'].isin(menu.menu['cod_alimento']))].sample(1)
+
+        if not new_food.empty:
+            menu.menu = menu.menu[menu.menu['cod_alimento'] != to_change['cod_alimento']]
+            menu.menu = pd.concat([menu.menu, new_food])
+
+        if self.revise(menu, energy, threshold) == None:
+            self.reuse(menu, energy, threshold)
+
+        return menu
+
+    def revise(self, menu: Menu, energy, threshold):
+        menu.generate_nutrient_table()
+
+        if (menu.energy <= energy + threshold or menu.energy >= energy - threshold):
+            print(f'NOVO MENU\n{menu}')
+            self.retain(menu)
+            return menu
+        else:
+            return None
+        
+    def retain(self, menu):
+        self.case_library.append(menu)
 
 if __name__ == '__main__':
     cbr = CBR()
+    menu = cbr.retrieve(2000, 100)
