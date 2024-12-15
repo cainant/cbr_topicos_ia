@@ -70,15 +70,13 @@ class CBR():
         filtered_menus = [m for m in self.case_library if energy - threshold <= m.energy <= energy + threshold]
 
         if len(filtered_menus) == 0:
+            print('Nenhum menu encontrado nesta faixa de energia')
             return None
         menu = sorted(filtered_menus, key=lambda m: abs(m.energy - energy))[0]
 
-        if menu:
-            print(f'MENU ORIGINAL\n{menu}')
-            menu = Menu(menu.menu)
-            return self.reuse(menu, energy, threshold)
-        else:
-            return None
+        print(f'MENU ORIGINAL\n{menu}')
+        menu = Menu(menu.menu)
+        return self.reuse(menu, energy, threshold)
     
     def reuse(self, menu: Menu, energy, threshold):
         to_change = menu.menu.sample(1).iloc[0]
@@ -110,4 +108,6 @@ class CBR():
 
 if __name__ == '__main__':
     cbr = CBR()
-    menu = cbr.retrieve(2000, 100)
+    energia1_med = int(input("Digite a energia média: "))
+    limiar = int(input("Digite o limiar de energia: "))
+    menu = cbr.retrieve(energia1_med, limiar)
