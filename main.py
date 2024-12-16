@@ -81,10 +81,6 @@ class CBR():
             return self.reuse(closest_menu, energy, threshold)
 
     def reuse(self, menu: Menu, energy, threshold):
-        if energy - threshold <= menu.energy <= energy + threshold:
-            print(f"Menu já está dentro da faixa de energia. Nenhuma adaptação necessária.\n")
-            return menu
-
         to_change = menu.menu.sample(1).iloc[0]
         to_change_group = to_change['grupo_id']
 
@@ -101,7 +97,7 @@ class CBR():
         menu.generate_nutrient_table()
 
         if energy - threshold <= menu.energy <= energy + threshold:
-            print(f'NOVO MENU\n{menu}')
+            print(f'MENU FINAL\n{menu}')
             self.retain(menu)
             return menu
         else:
