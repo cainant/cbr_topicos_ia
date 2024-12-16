@@ -68,16 +68,23 @@ class CBR():
     def retrieve(self, energy, threshold):
         filtered_menus = [m for m in self.case_library if energy - threshold <= m.energy <= energy + threshold]
 
-        if len(filtered_menus) == 0:
-            print('Nenhum menu encontrado nesta faixa de energia')
-            return None
-        menu = sorted(filtered_menus, key=lambda m: abs(m.energy - energy))[0]
+        if len(filtered_menus) > 0:
+            # Se encontrar um menu na faixa, retorna o mais próximo
+            menu = sorted(filtered_menus, key=lambda m: abs(m.energy - energy))[0]
+            print(f"Menu já está dentro da faixa de energia. Nenhuma adaptação necessária.\n")
+            print(f'MENU ORIGINAL\n{menu}')
+            return menu
+        else:
+            # Caso nenhum menu esteja na faixa, tenta adaptar o mais próximo
+            closest_menu = sorted(self.case_library, key=lambda m: abs(m.energy - energy))[0]
+            print(f"Nenhum menu na faixa. Adaptando o mais próximo:\n{closest_menu}")
+            return self.reuse(closest_menu, energy, threshold)
 
-        print(f'MENU ORIGINAL\n{menu}')
-        menu = Menu(menu.menu)
-        return self.reuse(menu, energy, threshold)
-    
     def reuse(self, menu: Menu, energy, threshold):
+        if energy - threshold <= menu.energy <= energy + threshold:
+            print(f"Menu já está dentro da faixa de energia. Nenhuma adaptação necessária.\n")
+            return menu
+
         to_change = menu.menu.sample(1).iloc[0]
         to_change_group = to_change['grupo_id']
 
@@ -88,20 +95,18 @@ class CBR():
             menu.menu = menu.menu[menu.menu['cod_alimento'] != to_change['cod_alimento']]
             menu.menu = pd.concat([menu.menu, new_food])
 
-        if self.revise(menu, energy, threshold) == None:
-            self.reuse(menu, energy, threshold)
-
-        return menu
+        return self.revise(menu, energy, threshold)
 
     def revise(self, menu: Menu, energy, threshold):
         menu.generate_nutrient_table()
 
-        if (energy - threshold <= menu.energy <= energy + threshold):
+        if energy - threshold <= menu.energy <= energy + threshold:
             print(f'NOVO MENU\n{menu}')
             self.retain(menu)
             return menu
         else:
-            return None
+            print("Menu revisado ainda não atende aos critérios. Reutilizando...")
+            return self.reuse(menu, energy, threshold)
 
     def retain(self, menu):
         self.case_library.append(menu)
@@ -111,4 +116,3 @@ if __name__ == '__main__':
     energia1_med = int(input("Digite a energia média: "))
     limiar = int(input("Digite o limiar de energia: "))
     menu = cbr.retrieve(energia1_med, limiar)
-    
